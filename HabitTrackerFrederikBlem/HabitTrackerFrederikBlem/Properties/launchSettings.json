@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "HabitTrackerFrederikBlem": {
+      "commandName": "Project",
+      "workingDirectory": "C:\\SOFTProj\\Code Review Projects\\CodeReviews.Console.HabitTracker\\HabitTrackerFrederikBlem\\HabitTrackerFrederikBlem"
+    }
+  }
+}
