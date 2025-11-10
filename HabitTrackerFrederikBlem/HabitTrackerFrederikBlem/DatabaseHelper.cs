@@ -6,105 +6,147 @@ namespace HabitTracker;
 public class DatabaseHelper
 {
     const string connectionString = "Data Source=habittracker.db";
-    public static void CreateTableIfNotExists(string givenConnectionString = connectionString, string tableName = "drinking_water")
+    public static void CreateTableIfNotExists(string tableName = "drinking_water", string givenConnectionString = connectionString)
     {
         using (var connection = new SqliteConnection(givenConnectionString))
         {
-            connection.Open();
-            var tableCmd = connection.CreateCommand();
-            tableCmd.CommandText = @$"CREATE TABLE IF NOT EXISTS {tableName} (Id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT, Quantity INTEGER)";
-            tableCmd.ExecuteNonQuery();
-            connection.Close();
-        }
-    }
-
-    public static List<DrinkingWater> GetAllRecords(string givenConnectionString = connectionString, string tableName = "drinking_water")
-    {
-        using (var connection = new SqliteConnection(givenConnectionString))
-        {
-            connection.Open();
-            var selectCmd = connection.CreateCommand();
-            selectCmd.CommandText = @$"SELECT * FROM {tableName}";
-
-            List<DrinkingWater> tableData = new();
-
-            using (SqliteDataReader reader = selectCmd.ExecuteReader())
+            try
             {
-                if (reader.HasRows)
-                {
-                    while (reader.Read())
-                    {
-                        var record = new DrinkingWater
-                        {
-                            Id = reader.GetInt32(0),
-                            Date = DateTime.ParseExact(reader.GetString(1), "dd-MM-yyyy", CultureInfo.CurrentCulture),
-                            Quantity = reader.GetInt32(2)
-                        };
-                        tableData.Add(record);
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("No rows of records found.");
-                }
-
+                connection.Open();
+                var tableCmd = connection.CreateCommand();
+                tableCmd.CommandText = $@"CREATE TABLE IF NOT EXISTS {tableName} (Id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT, Quantity INTEGER, QuantityUnit TEXT)";
+                //tableCmd.CommandText = @$"CREATE TABLE IF NOT EXISTS {tableName} (Id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT, Quantity INTEGER)";
+                tableCmd.ExecuteNonQuery();
                 connection.Close();
             }
-
-            return tableData;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while creating the table: {ex.Message}");
+            }
         }
     }
 
-    public static bool InsertRecord(string date, int quantity, string givenConnectionString = connectionString, string tableName = "drinking_water")
+    public static List<Habit> GetAllRecords(string tableName = "drinking_water", string givenConnectionString = connectionString)
+    {
+        using (var connection = new SqliteConnection(givenConnectionString))
+        {
+            try
+            {
+                connection.Open();
+                var selectCmd = connection.CreateCommand();
+                selectCmd.CommandText = @$"SELECT * FROM {tableName}";
+
+                List<Habit> tableData = new();
+
+                using (SqliteDataReader reader = selectCmd.ExecuteReader())
+                {
+                    if (reader.HasRows)
+                    {
+                        while (reader.Read())
+                        {
+                            var record = new Habit
+                            {
+                                Id = reader.GetInt32(0),
+                                Date = DateTime.ParseExact(reader.GetString(1), "dd-MM-yyyy", CultureInfo.CurrentCulture),
+                                Quantity = reader.GetInt32(2),
+                                QuantityUnit = reader.GetString(3)
+                            };
+                            tableData.Add(record);
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("No rows of records found.");
+                    }
+
+                    connection.Close();
+                }
+                return tableData;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while retrieving records: {ex.Message}");
+                return new List<Habit>();
+            }
+
+
+        }
+    }
+
+    public static bool InsertRecord(string date, int quantity, string quantityUnit, string tableName = "drinking_water", string givenConnectionString = connectionString)
     { 
         using (var connection = new SqliteConnection(givenConnectionString))
         {
-            connection.Open();
-            var insertCmd = connection.CreateCommand();
-            insertCmd.CommandText = $"INSERT INTO '{tableName}'(Date, Quantity) VALUES ('{date}', {quantity})";
-            
-            int rowsAffected = insertCmd.ExecuteNonQuery();
-            if (rowsAffected > 0)
+            try
             {
-                connection.Close();
-                return true;
+                connection.Open();
+                var insertCmd = connection.CreateCommand();
+                insertCmd.CommandText = $"INSERT INTO '{tableName}'(Date, Quantity, QuantityUnit) VALUES (@date, @quantity, @quantityUnit)";
+                insertCmd.Parameters.AddWithValue("@date", date);
+                insertCmd.Parameters.AddWithValue("@quantity", quantity);
+                insertCmd.Parameters.AddWithValue("@quantityUnit", quantityUnit);
+
+                int rowsAffected = insertCmd.ExecuteNonQuery();
+                if (rowsAffected > 0)
+                {
+                    connection.Close();
+                    return true;
+                }
+                else
+                {
+                    connection.Close();
+                    return false;
+                }
             }
-            else
+            catch (Exception ex)
             {
-                connection.Close();
+                Console.WriteLine($"An error occurred while inserting the record: {ex.Message}");
                 return false;
-            }            
+            }
         }
     }
 
-    public static bool DeleteRecord(int id, string givenConnectionString = connectionString, string tableName = "drinking_water")
+    public static bool DeleteRecord(int id, string tableName = "drinking_water", string givenConnectionString = connectionString)
     {
         using (var connection = new SqliteConnection(givenConnectionString))
         {
-            connection.Open();
-            var deleteCmd = connection.CreateCommand();
-            deleteCmd.CommandText = $"DELETE FROM '{tableName}' WHERE Id = {id}";
-            int rowsAffected = deleteCmd.ExecuteNonQuery();
-            if (rowsAffected > 0)
+            try
             {
-                connection.Close();
-                return true;
+                connection.Open();
+                var deleteCmd = connection.CreateCommand();
+                deleteCmd.CommandText = $"DELETE FROM '{tableName}' WHERE Id = {id}";
+                int rowsAffected = deleteCmd.ExecuteNonQuery();
+                if (rowsAffected > 0)
+                {
+                    connection.Close();
+                    return true;
+                }
+                else
+                {
+                    connection.Close();
+                    return false;
+                }
             }
-            else
+             catch (Exception ex)
             {
-                connection.Close();
+                Console.WriteLine($"An error occurred while deleting the record: {ex.Message}");
                 return false;
-            }            
+            }
         }
     }
 
-    public static bool UpdateRecord(int id, string date, int quantity, string givenConnectionString = connectionString, string tableName = "drinking_water")
+    public static bool UpdateRecord(int id, string date, int quantity, string quantityUnit, string tableName = "drinking_water", string givenConnectionString = connectionString)
     {
         using (var connection = new SqliteConnection(givenConnectionString))
         {
             connection.Open();
             var updateCmd = connection.CreateCommand();
-            updateCmd.CommandText = $"UPDATE '{tableName}' SET Date = '{date}', Quantity = {quantity} WHERE Id = {id}";
+            updateCmd.CommandText = $"UPDATE '{tableName}' SET Date = @date, Quantity = @quantity, QuantityUnit = @quantityUnit WHERE Id = @id";
+            updateCmd.Parameters.AddWithValue("@date", date);
+            updateCmd.Parameters.AddWithValue("@quantity", quantity);
+            updateCmd.Parameters.AddWithValue("@quantityUnit", quantityUnit);
+            updateCmd.Parameters.AddWithValue("@id", id);
+
             int rowsAffected = updateCmd.ExecuteNonQuery();
             if (rowsAffected > 0)
             {
@@ -116,6 +158,33 @@ public class DatabaseHelper
                 connection.Close();
                 return false;
             }            
+        }
+    }
+
+    public static string[] GetTableNames(string givenConnectionString = connectionString)
+    {
+        using (var connection = new SqliteConnection(givenConnectionString))
+        {
+            connection.Open();
+            var tableCmd = connection.CreateCommand();
+            tableCmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;";
+            List<string> tableNames = new();
+            using (SqliteDataReader reader = tableCmd.ExecuteReader())
+            {
+                if (reader.HasRows)
+                {
+                    while (reader.Read())
+                    {
+                        tableNames.Add(reader.GetString(0));
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No tables found in the database.");
+                }
+                connection.Close();
+            }
+            return tableNames.ToArray();
         }
     }
 }
