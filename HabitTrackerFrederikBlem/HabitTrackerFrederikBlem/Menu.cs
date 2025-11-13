@@ -1,4 +1,6 @@
-﻿namespace HabitTracker;
+﻿using System.Text.RegularExpressions;
+
+namespace HabitTracker;
 public class Menu
 {
     static readonly string lineSpacing = "----------------------------------------";
@@ -7,12 +9,11 @@ public class Menu
     static string[] tableNames;
     private static List<Habit> habitRecords = new();
 
-    #region Input Methods
     public static bool GetUserInputForMainMenu()
     {
         DisplayMainMenu();
 
-        string choice = Console.ReadLine();
+        string? choice = Console.ReadLine();
         switch (choice)
         {
             case "q":
@@ -20,91 +21,23 @@ public class Menu
                 return true;
             case "1":
                 Console.Clear();
-                tableNames = DatabaseHelper.GetTableNames();
-                if(tableNames.Length == 0 || tableNames[0].Contains("sqlite_sequence"))
-                {
-                    Console.WriteLine("No tables found in the database.");
-                    Console.WriteLine("Press any key to return to main menu.");
-                    Console.ReadKey();
-                    Console.Clear();
-                    return false;
-                }
-                else
-                {
-                    Console.WriteLine("Existing habits in the database:");
-                    for(int i = 0; i < tableNames.Length - 1; i++) // -1 to exclude sqlite_sequence table
-                    {
-                        Console.WriteLine($"Habit: {tableNames[i]}");
 
-                        habitRecords = DatabaseHelper.GetAllRecords(tableNames[i]);
-                        if (habitRecords.Count == 0)
-                        {
-                            Console.WriteLine(lineSpacing);
-                            Console.WriteLine($"No records for the habit {tableNames[i]}.");
-                            Console.WriteLine(lineSpacing);
-                        }
-                        else
-                        {
-                            DisplayRecords(habitRecords);
-                        }
-                    }
-                    Console.WriteLine("Press any key to return to main menu.");
-                    Console.ReadKey();
-                    Console.Clear();
-                    return false;
-                }                        
+                bool foundTables = GetAndDisplayTables();
+                if (foundTables == false)
+                {
+                    Console.WriteLine("No habits found in the database.");
+                }
+
+                Console.WriteLine("Press any key to return to main menu.");
+                Console.ReadKey();
+                Console.Clear();
+                return false;
             case "2":
-                tableNames = DatabaseHelper.GetTableNames();
-                string habitName = "";
+                Console.Clear();
 
-                int habitTableNumber = GetHabitSelectionInput(tableNames, "insert");      
-                
-                switch (habitTableNumber)
-                {
-                    case -1:
-                        Console.Clear();
-                        return false;
-                    case 0:
-                        habitName = GetHabitNameInput();
-                        if (habitName == "q")
-                        {
-                            Console.Clear();
-                            return false;
-                        }
-                        DatabaseHelper.CreateTableIfNotExists(habitName);
-                        break;
-                    default:
-                        habitName = tableNames[habitTableNumber - 1];
-                        DatabaseHelper.CreateTableIfNotExists(habitName);
-                        break;
-                }
+                var habitInsertResult = ArrangeInsertionOfARecord();
 
-                Console.WriteLine(lineSpacing);
-
-                string date = GetDateInput();
-                if (date == "q")
-                {
-                    Console.Clear();
-                    return false;
-                }
-
-                string quantityUnit = GetQuantityUnit(getQuantityUnitMessage);
-                if (quantityUnit == "q")
-                {
-                    Console.Clear();
-                    return false;
-                }
-
-                int quantity = GetNumberInput(getQuantityMessage);
-                if (quantity == -1)
-                {
-                    Console.Clear();
-                    return false;
-                }       
-
-                bool wasInserted = DatabaseHelper.InsertRecord(date, quantity, quantityUnit, habitName);
-
-                if (wasInserted)
+                if (habitInsertResult.wasInserted)
                 {
                     Console.WriteLine("Record inserted successfully.");
                 }
@@ -115,171 +48,294 @@ public class Menu
 
                 Console.WriteLine("Press any key to return to main menu.");
                 Console.ReadKey();
+                return false;
+            case "3":
                 Console.Clear();
-                return false;
-            case "3":               
-                tableNames = DatabaseHelper.GetTableNames();
-                string habitToDeleteFrom = "";
 
-                int habitTableToDeleteFromNumber = GetHabitSelectionInput(tableNames, "delete");
+                var habitDeleteResult = ArrangeDeletionOfARecord();
 
-                switch(habitTableToDeleteFromNumber)
+                if (habitDeleteResult.wasDeleted)
                 {
-                    case -1:
-                        Console.Clear();
-                        return false;
-                    case 0:
-                        habitToDeleteFrom = GetHabitNameInput();
-                        if (habitToDeleteFrom == "q")
-                        {
-                            Console.Clear();
-                            return false;
-                        }
-                        DatabaseHelper.CreateTableIfNotExists(habitToDeleteFrom);
-                        break;
-                    default:
-                        habitToDeleteFrom = tableNames[habitTableToDeleteFromNumber - 1];
-                        DatabaseHelper.CreateTableIfNotExists(habitToDeleteFrom);
-                        break;
+                    Console.WriteLine($"Habit {habitDeleteResult.habitTable}'s record was {habitDeleteResult.actionString}d");
                 }
-
-                habitRecords = DatabaseHelper.GetAllRecords(habitToDeleteFrom);
-                if (habitRecords.Count == 0)
+                else if (!habitDeleteResult.wasDeleted && habitDeleteResult.habitTable == "q")
                 {
-                    Console.WriteLine("No records to display or delete. Press any key to return to main menu.");
-                    Console.ReadKey();
-                    Console.Clear();
-                    return false;
+                    Console.WriteLine("No record was deleted. User Chose to exit to main menu.");
                 }
                 else
                 {
-                    DisplayRecords(habitRecords);
-
-                    string action = "delete";
-                    int idToDelete = GetIdToManipulateInput(action, habitRecords);
-                    if (idToDelete == -1)
-                    {
-                        Console.ReadKey();
-                        Console.Clear();
-                        return false;
-                    }
-
-                    bool wasDeleted = DatabaseHelper.DeleteRecord(idToDelete, habitToDeleteFrom);
-
-                    if (wasDeleted)
-                    {
-                        Console.WriteLine($"Record {action}d successfully.");
-                        habitRecords.RemoveAll(x => x.Id == idToDelete);
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Failed to {action} record from database.");
-                    }
-
-                    return false;
+                    Console.WriteLine("Failed to delete record from database.");
                 }
+
+                return false;
             case "4":
-                tableNames = DatabaseHelper.GetTableNames();
-                string habitToUpdate = "";
+                Console.Clear();
 
-                int habitTableToUpdateNumber = GetHabitSelectionInput(tableNames, "update");
+                var habitUpdateResult = ArrangeUpdateOfARecord();
 
-                switch (habitTableToUpdateNumber)
+                if (habitUpdateResult.wasUpdated)
                 {
-                    case -1:
-                        Console.Clear();
-                        return false;
-                    default:
-                        habitToUpdate = tableNames[habitTableToUpdateNumber - 1];
-                        break;
+                    Console.WriteLine($"Habit {habitUpdateResult.tableName}'s record was {habitUpdateResult.actionString}d");
                 }
-
-                habitRecords = DatabaseHelper.GetAllRecords(habitToUpdate);
-                if (habitRecords.Count == 0)
+                else if (!habitUpdateResult.wasUpdated && habitUpdateResult.tableName == "q")
                 {
-                    Console.WriteLine("No records to display or update. Press any key to return to main menu.");
-                    Console.ReadKey();
-                    Console.Clear();
-                    return false;
+                    Console.WriteLine("No record was updated. User Chose to exit to main menu.");
+                }
+                else if (!habitUpdateResult.wasUpdated && habitUpdateResult.tableName == "0")
+                {
+                    Console.WriteLine("No records to display or update.");
                 }
                 else
                 {
-                    DisplayRecords(habitRecords);
-
-                    string action = "update";
-                    int idToUpdate = GetIdToManipulateInput(action, habitRecords);
-                    if (idToUpdate == -1)
-                    {
-                        Console.Clear();
-                        return false;
-                    }
-
-                    string newDate = GetDateInput();
-                    if (newDate == "q")
-                    {
-                        Console.Clear();
-                        return false;
-                    }
-
-                    string newQuantityUnit = GetQuantityUnit(getQuantityUnitMessage);
-                    if (newQuantityUnit == "q")
-                    {
-                        Console.Clear();
-                        return false;
-                    }
-
-                    int newQuantity = GetNumberInput(getQuantityMessage);
-                    if (newQuantity == -1)
-                    {
-                        Console.Clear();
-                        return false;
-                    }
-
-                    bool wasUpdated = DatabaseHelper.UpdateRecord(idToUpdate, newDate, newQuantity, newQuantityUnit, habitToUpdate);
-
-                    if (wasUpdated)
-                    {
-                        Console.WriteLine($"Record {action}d successfully.");
-                        Habit habitRecordToUpdate = habitRecords.First(x => x.Id == idToUpdate);
-
-                        habitRecordToUpdate.Date = DateTime.ParseExact(newDate, "dd-MM-yyyy", System.Globalization.CultureInfo.CurrentCulture);
-                        habitRecordToUpdate.Quantity = newQuantity;
-                        habitRecordToUpdate.QuantityUnit = newQuantityUnit;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"Failed to {action} record from database.");
-                    }
-
-                    return false;
+                    Console.WriteLine("Failed to update record in database.");
                 }
-            default:
-                Console.WriteLine("Invalid option. Please type a number from 0 to 4.");
+
                 return false;
+            case "5":
+                Console.Clear();
+
+                var habitTableDropResult = ArrangeDroppingHabitTable();
+
+                if(habitTableDropResult.wasRemoved)
+                {
+                    Console.WriteLine($"Habit {habitTableDropResult.tableName} and all its records were successfully removed from the database.");
+                }
+                else if(!habitTableDropResult.wasRemoved && habitTableDropResult.tableName == "")
+                {
+                    Console.WriteLine("No habit was removed from the database. User Chose to exit to main menu.");
+                }
+                else
+                {
+                    Console.WriteLine($"Failed to {habitTableDropResult.actionString} habit {habitTableDropResult.tableName} from database.");
+                }
+
+                return false;
+            default:
+                Console.WriteLine("Invalid option. Please type a number from 0 to 5.");
+                return false;
+        }
+    }
+
+    public static (bool wasInserted, string tableName) ArrangeInsertionOfARecord()
+    {
+        tableNames = DatabaseHelper.GetTableNames();
+        string habitName = "";
+
+        int habitTableNumber = GetHabitSelectionInput(tableNames, "insert");
+
+        switch (habitTableNumber)
+        {
+            case -1:
+                Console.Clear();
+                return (false, "q");
+            case 0:
+                habitName = GetHabitNameInput();
+                if (habitName == "q")
+                {
+                    Console.Clear();
+                    return (false, "q");
+                }
+                DatabaseHelper.CreateTableIfNotExists(habitName);
+                break;
+            default:
+                habitName = tableNames[habitTableNumber - 1];
+                DatabaseHelper.CreateTableIfNotExists(habitName);
+                break;
+        }
+
+        Console.WriteLine(lineSpacing);
+
+        var recordDetails = GetRecordDetailsInput();
+
+        if (recordDetails.date == "q" || recordDetails.quantityUnit == "q" || recordDetails.quantity == -1)
+        {
+            Console.Clear();
+            return (false, "q");
+        }
+
+        bool wasInserted = DatabaseHelper.InsertRecord(recordDetails.date, recordDetails.quantity, recordDetails.quantityUnit, habitName);
+
+        return (wasInserted, habitName);
+    }
+
+    public static (bool wasDeleted, string habitTable, string actionString) ArrangeDeletionOfARecord()
+    {
+        tableNames = DatabaseHelper.GetTableNames();
+        string habitToDeleteFrom = "";
+        string actionDelete = "delete";
+
+        int habitTableToDeleteFromNumber = GetHabitSelectionInput(tableNames, actionDelete);
+
+        switch (habitTableToDeleteFromNumber)
+        {
+            case -1:
+                Console.Clear();
+                return (false, "q", actionDelete);
+            case 0:
+                habitToDeleteFrom = GetHabitNameInput();
+                if (habitToDeleteFrom == "q")
+                {
+                    Console.Clear();
+                    return (false, habitToDeleteFrom, actionDelete);
+                }
+                break;
+            default:
+                habitToDeleteFrom = tableNames[habitTableToDeleteFromNumber - 1];
+                break;
+        }
+
+        habitRecords = DatabaseHelper.GetAllRecords(habitToDeleteFrom);
+        if (habitRecords.Count == 0)
+        {
+            return (false, habitToDeleteFrom, actionDelete);
+        }
+        else
+        {
+            DisplayRecords(habitRecords);
+
+            
+            int idToDelete = GetIdToManipulateInput(actionDelete, habitRecords);
+            if (idToDelete == -1)
+            {
+                return (false, habitToDeleteFrom, actionDelete);
+            }
+
+            bool wasDeleted = DatabaseHelper.DeleteRecord(idToDelete, habitToDeleteFrom);
+
+            if (wasDeleted)
+            {
+                habitRecords.RemoveAll(x => x.Id == idToDelete);
+            }
+
+            return (wasDeleted, habitToDeleteFrom, actionDelete);
+        }
+    }
+
+    public static (bool wasUpdated, string tableName, string actionString) ArrangeUpdateOfARecord()
+    {
+        tableNames = DatabaseHelper.GetTableNames();
+        string habitToUpdate = "";
+        string actionUpdate = "update";
+
+        int habitTableToUpdateNumber = GetHabitSelectionInput(tableNames, actionUpdate);
+
+        switch (habitTableToUpdateNumber)
+        {
+            case -1:
+                Console.Clear();
+                return (false, "q", actionUpdate);
+            default:
+                habitToUpdate = tableNames[habitTableToUpdateNumber - 1];
+                break;
+        }
+
+        habitRecords = DatabaseHelper.GetAllRecords(habitToUpdate);
+        if (habitRecords.Count == 0)
+        {
+            return (false, "0", actionUpdate);
+        }
+        else
+        {
+            DisplayRecords(habitRecords);
+
+            
+            int idToUpdate = GetIdToManipulateInput(actionUpdate, habitRecords);
+            if (idToUpdate == -1)
+            {
+                Console.Clear();
+                return (false, habitToUpdate, actionUpdate);
+            }
+
+            var newRecordDetails = GetRecordDetailsInput();
+
+            if (newRecordDetails.date == "q" || newRecordDetails.quantity == -1 || newRecordDetails.quantityUnit == "q")
+            {
+                Console.Clear();
+                return (false, habitToUpdate, actionUpdate);
+            }
+
+            bool wasUpdated = DatabaseHelper.UpdateRecord(idToUpdate, newRecordDetails.date, newRecordDetails.quantity, newRecordDetails.quantityUnit, habitToUpdate);
+
+            if (wasUpdated)
+            {
+                Habit habitRecordToUpdate = habitRecords.First(x => x.Id == idToUpdate);
+
+                habitRecordToUpdate.Date = DateTime.ParseExact(newRecordDetails.date, "dd-MM-yyyy", System.Globalization.CultureInfo.CurrentCulture);
+                habitRecordToUpdate.Quantity = newRecordDetails.quantity;
+                habitRecordToUpdate.QuantityUnit = newRecordDetails.quantityUnit;
+
+                return (wasUpdated, habitToUpdate, actionUpdate);
+            }
+
+            return (wasUpdated, habitToUpdate, actionUpdate);
+        }
+    }
+
+    public static (bool wasRemoved, string tableName, string actionString) ArrangeDroppingHabitTable()
+    {
+        tableNames = DatabaseHelper.GetTableNames();
+        string habitToRemove = "";
+
+        string actionRemove = "remove";
+        int habitTableToRemoveNumber = GetHabitSelectionInput(tableNames, actionRemove);
+
+        switch (habitTableToRemoveNumber)
+        {
+            case -1:
+                Console.Clear();
+                return (false, "", actionRemove);
+            default:
+                habitToRemove = tableNames[habitTableToRemoveNumber - 1];
+                break;
+        }
+
+        bool wasDropped = DatabaseHelper.DropTable(habitToRemove);
+        if (wasDropped)
+        {
+            
+            return (true, habitToRemove, actionRemove);
+        }
+        else
+        {
+            
+            return (false, habitToRemove, actionRemove);  
         }
     }
 
     public static string GetHabitNameInput()
     {
-        Console.Write("Enter the habit name you want to track (e.g., drinking_water, running, reading, etc.). Type q to return to main menu. ");
+        Regex habitRegex = new(@"^[a-zA-Z-_ ]*$");
+
+        Console.WriteLine(@"Enter the habit name you want to track (e.g., drinking water, running, reading, etc.).
+Only lower and upper case letters a-z, _ and space are allowed.
+Type q to return to main menu.");
         string habitNameInput = Console.ReadLine().Trim().ToLower();
-        while (string.IsNullOrWhiteSpace(habitNameInput))
+        while (string.IsNullOrWhiteSpace(habitNameInput) || !habitRegex.IsMatch(habitNameInput))
         {
             if (habitNameInput == "q")
             {
                 return habitNameInput;
             }
 
-            Console.Write("Invalid input. Please enter a valid habit name or q to return to the main menu: ");
+            if (Regex.IsMatch(habitNameInput, @"[\/\\\:\*\?\""\<\>\|]") || !habitRegex.IsMatch(habitNameInput))
+            {
+                Console.WriteLine("Habit name cannot contain numbers or any of the following characters: / \\ : * ? \" < > |");
+                Console.WriteLine("Please enter a valid habit name or q to return to the main menu: ");
+                habitNameInput = Console.ReadLine().Trim().ToLower();
+                habitNameInput.Replace(" ", "_");
+                continue;
+            }
+
+            Console.WriteLine("Invalid input. Please enter a valid habit name or q to return to the main menu: ");
             habitNameInput = Console.ReadLine().Trim().ToLower();
-            habitNameInput.Replace(" ", "_").Replace("-", "_");
+            habitNameInput.Replace(" ", "_");
         }
         return habitNameInput;
     }
 
     public static string GetDateInput()
     {
-        Console.Write("Enter the dateInput: (Format: dd-MM-yyyy). Type q to return to main menu. ");
+        Console.Write("Enter the dateInput: (Format: dd-MM-yyyy) or type q to return to main menu: ");
 
         DateTime userDateTime;
         string dateInput = Console.ReadLine().Trim().ToLower();
@@ -318,7 +374,7 @@ public class Menu
         return result;
     }
 
-    public static string GetQuantityUnit(string message)
+    public static string GetQuantityUnitInput(string message)
     {
         Console.Write(message);
         string quantityUnit = Console.ReadLine().Trim().ToLower();
@@ -367,13 +423,16 @@ public class Menu
         switch (action)
         {
             case "delete":
-                promptMessage = "Type the number of the habit you want to delete from: ";
+                promptMessage = "Type the number of the habit you want to delete from or q to return to the main menu: ";
                 break;
             case "insert":
-                promptMessage = "Type the number of the habit you want to insert a record for, or type n to create a new habit: ";
+                promptMessage = "Type the number of the habit you want to insert a record for, type q to return to the main menu\n or type n to create a new habit:\n";
                 break;
             case "update":
-                promptMessage = "Type the number of the habit you want to update a record for: ";
+                promptMessage = "Type the number of the habit you want to update a record for or q to return to the main menu: ";
+                break;
+            case "remove":
+                promptMessage = "Type the number of the habit you want to drop tracking.\nThis will destroy all records of the habit. \nYou can also type q to return to the main menu. ";
                 break;
         }
 
@@ -384,19 +443,25 @@ public class Menu
         }
         else
         {
-            Console.WriteLine("Existing habits in the database:");
+            Console.WriteLine("Existing habits in the database:\n");
 
-            for (int i = 0; i < existingHabits.Length - 1; i++)
+            for (int i = 0; i < existingHabits.Length; i++)
             {
                 Console.WriteLine($"{i + 1}: {existingHabits[i]}");
             }
+            Console.WriteLine();
 
             Console.Write(promptMessage);
             string habitChoice = Console.ReadLine().Trim().ToLower();
-            while (habitChoice != "n" && (!int.TryParse(habitChoice, out int habitNumber) && action.Equals("insert") || habitNumber < 1 || habitNumber > existingHabits.Length - 1))
+            while (habitChoice != "n" && (!int.TryParse(habitChoice, out int habitNumber) && action.Equals("insert") || habitNumber < 1 || habitNumber > existingHabits.Length) || habitChoice.Equals("q"))
             {
-                Console.Write("Invalid input. Please type a valid number of an existing habit or n to create a new habit: ");
+                Console.WriteLine("Invalid input. Please type a valid number of an existing habit or n to create a new habit:");
                 habitChoice = Console.ReadLine().Trim().ToLower();
+
+                if( habitChoice.Equals("q"))
+                {
+                    return -1;
+                }
             }
 
             if (habitChoice != "n")
@@ -413,18 +478,43 @@ public class Menu
         }
     }
 
-    #endregion // Input Methods
+    public static (string date, int quantity, string quantityUnit) GetRecordDetailsInput()
+    {
+        Console.WriteLine("You will now be asked to enter Date, Quantity and Unit for your habit.\n");
 
-    #region Display Methods
+        string date = GetDateInput();
+        if (date == "q")
+        {
+            return (date, -1, "q");
+        }
+
+        int quantity = GetNumberInput(getQuantityMessage);
+        if (quantity == -1)
+        {
+            return (date, quantity, "q");
+        }
+
+        string quantityUnit = GetQuantityUnitInput(getQuantityUnitMessage);
+        if (quantityUnit == "q")
+        {
+            return (date, -1, quantityUnit);
+        }
+
+        return (date, quantity, quantityUnit);
+    }
+
     public static void DisplayMainMenu()
     {
         Console.WriteLine("MAIN MENU");
+        Console.WriteLine(lineSpacing);
         Console.WriteLine("What would you like to do?");
+        Console.WriteLine();
         Console.WriteLine("Type q to Close Application.");
         Console.WriteLine("Type 1 to View All Records.");
         Console.WriteLine("Type 2 to Insert Record.");
         Console.WriteLine("Type 3 to Delete Record.");
         Console.WriteLine("Type 4 to Update Record.");
+        Console.WriteLine("Type 5 to Remove Tracking of a Habit (erasing all records of it).");
         Console.WriteLine(lineSpacing);
         Console.Write("Select an option: ");
     }
@@ -438,5 +528,39 @@ public class Menu
         }
         Console.WriteLine(lineSpacing);
     }
-    #endregion // Display Methods
+
+    public static bool GetAndDisplayTables()
+    {
+        tableNames = DatabaseHelper.GetTableNames();
+        if (tableNames.Length == 0 || tableNames[0].Contains("sqlite_sequence"))
+        {
+            return false;
+        }
+        else
+        {
+            int totalRecords = 0;
+
+            Console.WriteLine("Existing habits in the database:\n");
+            for (int i = 0; i < tableNames.Length; i++)
+            {
+                Console.WriteLine($"Habit {i + 1}: {tableNames[i]}");
+
+                habitRecords = DatabaseHelper.GetAllRecords(tableNames[i]);
+                if (habitRecords.Count == 0)
+                {
+                    Console.WriteLine(lineSpacing);
+                    Console.WriteLine($"No records for the habit {tableNames[i]}.");
+                    Console.WriteLine(lineSpacing);
+                }
+                else
+                {
+                    DisplayRecords(habitRecords);
+                    totalRecords += habitRecords.Count;
+                }
+                Console.WriteLine();
+            }
+            Console.WriteLine($"For a total of {totalRecords} records for {tableNames.Length} habits.\n");
+            return true;
+        }
+    }
 }

@@ -6,7 +6,8 @@ namespace HabitTracker;
 public class DatabaseHelper
 {
     const string connectionString = "Data Source=habittracker.db";
-    public static void CreateTableIfNotExists(string tableName = "drinking_water", string givenConnectionString = connectionString)
+
+    public static bool CreateTableIfNotExists(string tableName = "drinking_water", string givenConnectionString = connectionString)
     {
         using (var connection = new SqliteConnection(givenConnectionString))
         {
@@ -15,13 +16,35 @@ public class DatabaseHelper
                 connection.Open();
                 var tableCmd = connection.CreateCommand();
                 tableCmd.CommandText = $@"CREATE TABLE IF NOT EXISTS {tableName} (Id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT, Quantity INTEGER, QuantityUnit TEXT)";
-                //tableCmd.CommandText = @$"CREATE TABLE IF NOT EXISTS {tableName} (Id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT, Quantity INTEGER)";
                 tableCmd.ExecuteNonQuery();
                 connection.Close();
+                return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"An error occurred while creating the table: {ex.Message}");
+                return false;
+            }
+        }
+    }
+
+    public static bool DropTable(string tableName = "drinking_water", string givenConnectionString = connectionString)
+    {
+        using (var connection = new SqliteConnection(givenConnectionString))
+        {
+            try
+            {
+                connection.Open();
+                var dropCmd = connection.CreateCommand();
+                dropCmd.CommandText = $"DROP TABLE IF EXISTS {tableName}";
+                dropCmd.ExecuteNonQuery();
+                connection.Close();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"An error occurred while dropping the table: {ex.Message}");
+                return false;
             }
         }
     }
@@ -175,7 +198,10 @@ public class DatabaseHelper
                 {
                     while (reader.Read())
                     {
-                        tableNames.Add(reader.GetString(0));
+                        if( reader.GetString(0) != "sqlite_sequence")
+                        {
+                            tableNames.Add(reader.GetString(0));
+                        }                            
                     }
                 }
                 else
