@@ -17,11 +17,11 @@ You can find the full assignment at [csharpacademy.com](https://www.thecsharpaca
 + [x] You can only interact with the database using ADO.NET. You can’t use mappers such as Entity Framework or Dapper.
 + [x] Follow the DRY Principle, and avoid code repetition.
 + [x] Your project needs to contain a Read Me file where you'll:
-    + [] explain how your app works.
-    + [] tell a little bit about your thought progress.
-    + [] What was hard?
-    + [] What was easy?
-    + [] What have you learned?
+    + [ ] explain how your app works.
+    + [ ] tell a little bit about your thought progress.
+    + [ ] What was hard?
+    + [ ] What was easy?
+    + [ ] What have you learned?
 
 ## How the app works
 
