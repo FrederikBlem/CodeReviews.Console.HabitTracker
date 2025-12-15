@@ -7,7 +7,25 @@ public class DatabaseHelper
 {
     const string connectionString = "Data Source=habittracker.db";
 
-    public static bool CreateTableIfNotExists(string tableName = "drinking_water", string givenConnectionString = connectionString)
+    public static bool CreateDatabase(string givenConnectionString = connectionString)
+    {
+        try
+        {
+            using (var connection = new SqliteConnection(givenConnectionString))
+            {
+                connection.Open();
+                connection.Close();
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while creating the database: {ex.Message}");
+            return false;
+        }
+    }
+
+    public static bool CreateTableIfNotExists(string tableName = "tracking_habits", string givenConnectionString = connectionString)
     {
         using (var connection = new SqliteConnection(givenConnectionString))
         {
@@ -15,7 +33,7 @@ public class DatabaseHelper
             {
                 connection.Open();
                 var tableCmd = connection.CreateCommand();
-                tableCmd.CommandText = $@"CREATE TABLE IF NOT EXISTS {tableName} (Id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT, Quantity INTEGER, QuantityUnit TEXT)";
+                tableCmd.CommandText = $@"CREATE TABLE IF NOT EXISTS {tableName} (Id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT, Quantity FLOAT, Unit TEXT)";
                 tableCmd.ExecuteNonQuery();
                 connection.Close();
                 return true;
@@ -28,7 +46,7 @@ public class DatabaseHelper
         }
     }
 
-    public static bool DropTable(string tableName = "drinking_water", string givenConnectionString = connectionString)
+    public static bool DropTable(string tableName = "tracking_habits", string givenConnectionString = connectionString)
     {
         using (var connection = new SqliteConnection(givenConnectionString))
         {
@@ -49,7 +67,22 @@ public class DatabaseHelper
         }
     }
 
-    public static List<Habit> GetAllRecords(string tableName = "drinking_water", string givenConnectionString = connectionString)
+    public static List<Habit> GetAllRecordsFromDatabase(string givenConnectionString = connectionString)
+    {
+        var allRecords = new List<Habit>();
+
+        string[] tableNames = DatabaseHelper.GetTableNames(givenConnectionString);
+
+        foreach (string tableName in tableNames) 
+        { 
+            var tableRecords = GetAllRecordsFromTable(tableName, givenConnectionString);
+            allRecords.AddRange(tableRecords);
+        }
+
+        return allRecords;
+    }
+
+    public static List<Habit> GetAllRecordsFromTable(string tableName = "tracking_habits", string givenConnectionString = connectionString)
     {
         using (var connection = new SqliteConnection(givenConnectionString))
         {
@@ -71,8 +104,8 @@ public class DatabaseHelper
                             {
                                 Id = reader.GetInt32(0),
                                 Date = DateTime.ParseExact(reader.GetString(1), "dd-MM-yyyy", CultureInfo.CurrentCulture),
-                                Quantity = reader.GetInt32(2),
-                                QuantityUnit = reader.GetString(3)
+                                Quantity = reader.GetDouble(2),
+                                Unit = reader.GetString(3)
                             };
                             tableData.Add(record);
                         }
@@ -96,7 +129,7 @@ public class DatabaseHelper
         }
     }
 
-    public static bool InsertRecord(string date, int quantity, string quantityUnit, string tableName = "drinking_water", string givenConnectionString = connectionString)
+    public static bool InsertRecord(string date, double quantity, string quantityUnit, string tableName = "tracking_habits", string givenConnectionString = connectionString)
     { 
         using (var connection = new SqliteConnection(givenConnectionString))
         {
@@ -104,7 +137,7 @@ public class DatabaseHelper
             {
                 connection.Open();
                 var insertCmd = connection.CreateCommand();
-                insertCmd.CommandText = $"INSERT INTO '{tableName}'(Date, Quantity, QuantityUnit) VALUES (@date, @quantity, @quantityUnit)";
+                insertCmd.CommandText = $"INSERT INTO '{tableName}'(Date, Quantity, Unit) VALUES (@date, @quantity, @quantityUnit)";
                 insertCmd.Parameters.AddWithValue("@date", date);
                 insertCmd.Parameters.AddWithValue("@quantity", quantity);
                 insertCmd.Parameters.AddWithValue("@quantityUnit", quantityUnit);
@@ -129,7 +162,7 @@ public class DatabaseHelper
         }
     }
 
-    public static bool DeleteRecord(int id, string tableName = "drinking_water", string givenConnectionString = connectionString)
+    public static bool DeleteRecord(int id, string tableName = "tracking_habits", string givenConnectionString = connectionString)
     {
         using (var connection = new SqliteConnection(givenConnectionString))
         {
@@ -158,13 +191,13 @@ public class DatabaseHelper
         }
     }
 
-    public static bool UpdateRecord(int id, string date, int quantity, string quantityUnit, string tableName = "drinking_water", string givenConnectionString = connectionString)
+    public static bool UpdateRecord(int id, string date, double quantity, string quantityUnit, string tableName = "tracking_habits", string givenConnectionString = connectionString)
     {
         using (var connection = new SqliteConnection(givenConnectionString))
         {
             connection.Open();
             var updateCmd = connection.CreateCommand();
-            updateCmd.CommandText = $"UPDATE '{tableName}' SET Date = @date, Quantity = @quantity, QuantityUnit = @quantityUnit WHERE Id = @id";
+            updateCmd.CommandText = $"UPDATE '{tableName}' SET Date = @date, Quantity = @quantity, Unit = @quantityUnit WHERE Id = @id";
             updateCmd.Parameters.AddWithValue("@date", date);
             updateCmd.Parameters.AddWithValue("@quantity", quantity);
             updateCmd.Parameters.AddWithValue("@quantityUnit", quantityUnit);
@@ -184,7 +217,7 @@ public class DatabaseHelper
         }
     }
 
-    public static string[] GetTableNames(string givenConnectionString = connectionString)
+    public static string[] GetTableNames(string givenConnectionString = connectionString, bool writeToConsole = false)
     {
         using (var connection = new SqliteConnection(givenConnectionString))
         {
@@ -204,7 +237,7 @@ public class DatabaseHelper
                         }                            
                     }
                 }
-                else
+                else if (writeToConsole)
                 {
                     Console.WriteLine("No tables found in the database.");
                 }

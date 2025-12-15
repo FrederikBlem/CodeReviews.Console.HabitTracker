@@ -1,9 +1,20 @@
-﻿namespace HabitTracker;
+﻿using System.Globalization;
+
+namespace HabitTracker;
+
 public class Program
 {
     public static void Main(string[] args)
     {       
-        DatabaseHelper.CreateTableIfNotExists();
+        CultureInfo.CurrentCulture = new CultureInfo("en-GB");
+
+        string[] tableNames = DatabaseHelper.GetTableNames(writeToConsole: false);
+        if (tableNames.Length == 0)
+        {
+            DatabaseHelper.CreateTableIfNotExists("tracking_habits");
+            DateTime currentDate = DateTime.Now;
+            DatabaseHelper.InsertRecord(currentDate.ToString("dd-MM-yyyy"), 1, "time(s)", "tracking_habits");
+        }
 
         Console.WriteLine("Welcome to Habit Tracker!");
         Console.WriteLine("-------------------------");

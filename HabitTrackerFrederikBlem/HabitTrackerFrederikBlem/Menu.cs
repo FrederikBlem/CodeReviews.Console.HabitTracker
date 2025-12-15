@@ -1,14 +1,15 @@
 ﻿using System.Text.RegularExpressions;
 
 namespace HabitTracker;
+
 public class Menu
 {
     static readonly string lineSpacing = "----------------------------------------";
-    static readonly string getQuantityUnitMessage = "Enter the unit of measurement.\n(e.g., liters, kilometers, bunches, minutes, rotations. etc.).\nType q to return to main menu. ";
+    static readonly string getQuantityUnitMessage = "Enter the unit of measurement.\n(e.g., liters, kilometers, bunches, pages, rotations. etc.) - It is recommended to avoid units of time.\nType q to return to main menu. ";
     static readonly string getQuantityMessage = "Enter the quantity. Type q to return to main menu. ";
-    static string[] tableNames;
+    static string[]? tableNames;
     private static List<Habit> habitRecords = new();
-
+    
     public static bool GetUserInputForMainMenu()
     {
         DisplayMainMenu();
@@ -21,8 +22,9 @@ public class Menu
                 return true;
             case "1":
                 Console.Clear();
+                tableNames = DatabaseHelper.GetTableNames();
 
-                bool foundTables = GetAndDisplayTables();
+                bool foundTables = DisplayAllTableRecords(tableNames);
                 if (foundTables == false)
                 {
                     Console.WriteLine("No habits found in the database.");
@@ -40,6 +42,10 @@ public class Menu
                 if (habitInsertResult.wasInserted)
                 {
                     Console.WriteLine("Record inserted successfully.");
+                }
+                else if (!habitInsertResult.wasInserted && habitInsertResult.tableName == "q")
+                {
+                    Console.WriteLine("No record was inserted. User Chose to exit to main menu.");
                 }
                 else
                 {
@@ -100,15 +106,20 @@ public class Menu
                 {
                     Console.WriteLine($"Habit {habitTableDropResult.tableName} and all its records were successfully removed from the database.");
                 }
-                else if(!habitTableDropResult.wasRemoved && habitTableDropResult.tableName == "")
+                else if(!habitTableDropResult.wasRemoved && habitTableDropResult.tableName == "q")
                 {
                     Console.WriteLine("No habit was removed from the database. User Chose to exit to main menu.");
                 }
                 else
                 {
-                    Console.WriteLine($"Failed to {habitTableDropResult.actionString} habit {habitTableDropResult.tableName} from database.");
+                    if (!habitTableDropResult.tableName.Equals("empty"))
+                    {
+                        Console.WriteLine($"Failed to {habitTableDropResult.actionString} habit {habitTableDropResult.tableName} from database.");
+                    }
                 }
 
+                Console.WriteLine("Press any key to return to main menu.");
+                Console.ReadKey();
                 return false;
             default:
                 Console.WriteLine("Invalid option. Please type a number from 0 to 5.");
@@ -119,7 +130,7 @@ public class Menu
     public static (bool wasInserted, string tableName) ArrangeInsertionOfARecord()
     {
         tableNames = DatabaseHelper.GetTableNames();
-        string habitName = "";
+        string habitName;
 
         int habitTableNumber = GetHabitSelectionInput(tableNames, "insert");
 
@@ -184,7 +195,7 @@ public class Menu
                 break;
         }
 
-        habitRecords = DatabaseHelper.GetAllRecords(habitToDeleteFrom);
+        habitRecords = DatabaseHelper.GetAllRecordsFromTable(habitToDeleteFrom);
         if (habitRecords.Count == 0)
         {
             return (false, habitToDeleteFrom, actionDelete);
@@ -229,7 +240,7 @@ public class Menu
                 break;
         }
 
-        habitRecords = DatabaseHelper.GetAllRecords(habitToUpdate);
+        habitRecords = DatabaseHelper.GetAllRecordsFromTable(habitToUpdate);
         if (habitRecords.Count == 0)
         {
             return (false, "0", actionUpdate);
@@ -262,7 +273,7 @@ public class Menu
 
                 habitRecordToUpdate.Date = DateTime.ParseExact(newRecordDetails.date, "dd-MM-yyyy", System.Globalization.CultureInfo.CurrentCulture);
                 habitRecordToUpdate.Quantity = newRecordDetails.quantity;
-                habitRecordToUpdate.QuantityUnit = newRecordDetails.quantityUnit;
+                habitRecordToUpdate.Unit = newRecordDetails.quantityUnit;
 
                 return (wasUpdated, habitToUpdate, actionUpdate);
             }
@@ -274,7 +285,14 @@ public class Menu
     public static (bool wasRemoved, string tableName, string actionString) ArrangeDroppingHabitTable()
     {
         tableNames = DatabaseHelper.GetTableNames();
-        string habitToRemove = "";
+
+        if (tableNames.Length == 0 || tableNames[0].Contains("sqlite_sequence"))
+        {
+            Console.WriteLine("No existing habits found in the database.");
+            return (false, "empty", "remove");
+        }
+
+        string habitToRemove;
 
         string actionRemove = "remove";
         int habitTableToRemoveNumber = GetHabitSelectionInput(tableNames, actionRemove);
@@ -283,7 +301,7 @@ public class Menu
         {
             case -1:
                 Console.Clear();
-                return (false, "", actionRemove);
+                return (false, "q", actionRemove);
             default:
                 habitToRemove = tableNames[habitTableToRemoveNumber - 1];
                 break;
@@ -306,10 +324,13 @@ public class Menu
     {
         Regex habitRegex = new(@"^[a-zA-Z-_ ]*$");
 
-        Console.WriteLine(@"Enter the habit name you want to track (e.g., drinking water, running, reading, etc.).
+        string habitNameInstructions = @"Enter the habit name you want to track (e.g., drinking water, running, reading, etc.).
 Only lower and upper case letters a-z, _ and space are allowed.
-Type q to return to main menu.");
+Type q to return to main menu.";
+
+        Console.WriteLine(habitNameInstructions);
         string habitNameInput = Console.ReadLine().Trim().ToLower();
+
         while (string.IsNullOrWhiteSpace(habitNameInput) || !habitRegex.IsMatch(habitNameInput))
         {
             if (habitNameInput == "q")
@@ -319,6 +340,8 @@ Type q to return to main menu.");
 
             if (Regex.IsMatch(habitNameInput, @"[\/\\\:\*\?\""\<\>\|]") || !habitRegex.IsMatch(habitNameInput))
             {
+                Console.Clear();
+                Console.WriteLine(habitNameInstructions);
                 Console.WriteLine("Habit name cannot contain numbers or any of the following characters: / \\ : * ? \" < > |");
                 Console.WriteLine("Please enter a valid habit name or q to return to the main menu: ");
                 habitNameInput = Console.ReadLine().Trim().ToLower();
@@ -335,7 +358,9 @@ Type q to return to main menu.");
 
     public static string GetDateInput()
     {
-        Console.Write("Enter the dateInput: (Format: dd-MM-yyyy) or type q to return to main menu: ");
+        string dateInstructions = "Enter the date for the habit record in the format dd-MM-yyyy. Type q to return to main menu.";
+
+        Console.Write(dateInstructions);
 
         DateTime userDateTime;
         string dateInput = Console.ReadLine().Trim().ToLower();
@@ -346,6 +371,8 @@ Type q to return to main menu.");
                 return dateInput;
             }
 
+            Console.Clear();
+            Console.WriteLine(dateInstructions);
             Console.Write("Invalid date format. Please enter the date in the format dd-MM-yyyy: ");
             dateInput = Console.ReadLine().Trim().ToLower();
         }
@@ -355,19 +382,21 @@ Type q to return to main menu.");
         return dateResult;
     }
 
-    public static int GetNumberInput(string message)
+    public static double GetNumberInput(string message)
     {
         Console.Write(message);
-        int result;
+        double result;
         string quantityInput = Console.ReadLine();
-        while (!int.TryParse(quantityInput, out result) || result < 0)
+        while (!double.TryParse(quantityInput, out result) || result < 0)
         {
             if (quantityInput == "q")
             {
                 return -1;
             }
 
-            Console.Write("Invalid input. Please enter a valid positive, whole number or q to return to the main menu: ");
+            Console.Clear();
+            Console.WriteLine(message);
+            Console.Write("Invalid input. Please enter a valid positive number or q to return to the main menu: ");
             quantityInput = Console.ReadLine();
         }
 
@@ -385,15 +414,19 @@ Type q to return to main menu.");
                 return quantityUnit;
             }
 
+            Console.Clear();
+            Console.WriteLine(message);
             Console.Write("Invalid input. Please enter a valid unit of measurement or q to return to the main menu: ");
             quantityUnit = Console.ReadLine().Trim().ToLower();
         }
         return quantityUnit;
     }
 
-    public static int GetIdToManipulateInput(string actionToDisplay, List<Habit> givenDrinkingWaterRecords)
+    public static int GetIdToManipulateInput(string actionToDisplay, List<Habit> givenRecords)
     {
-        Console.Write($"Enter the ID of the record you want to {actionToDisplay}. Type q to return to the main menu. ");
+        string idInstructions = $"Enter the ID of the record you want to {actionToDisplay}. Type q to return to the main menu.";
+
+        Console.Write(idInstructions);
         int idToManipulate;
 
         string? input = Console.ReadLine();
@@ -403,8 +436,10 @@ Type q to return to main menu.");
         }
 
         bool validIdInput = int.TryParse(input, out idToManipulate);
-        while (!validIdInput || !givenDrinkingWaterRecords.Any(x=> x.Id == idToManipulate))
+        while (!validIdInput || !givenRecords.Any(x=> x.Id == idToManipulate))
         {
+            Console.Clear();
+            Console.WriteLine(idInstructions);
             Console.Write($"Invalid ID. Please enter a valid record ID to {actionToDisplay} or type q to return to the main menu. ");
             input = Console.ReadLine();
             if (input == "q")
@@ -419,7 +454,7 @@ Type q to return to main menu.");
 
     public static int GetHabitSelectionInput(string[] existingHabits, string action)
     {
-        string promptMessage = "";
+        string promptMessage;
         switch (action)
         {
             case "delete":
@@ -434,6 +469,9 @@ Type q to return to main menu.");
             case "remove":
                 promptMessage = "Type the number of the habit you want to drop tracking.\nThis will destroy all records of the habit. \nYou can also type q to return to the main menu. ";
                 break;
+            default:
+                Console.WriteLine("Invalid action specified for habit selection input.");
+                return -1;
         }
 
         if (existingHabits.Length == 0 || existingHabits[0].Contains("sqlite_sequence"))
@@ -445,23 +483,24 @@ Type q to return to main menu.");
         {
             Console.WriteLine("Existing habits in the database:\n");
 
-            for (int i = 0; i < existingHabits.Length; i++)
-            {
-                Console.WriteLine($"{i + 1}: {existingHabits[i]}");
-            }
+            DisplayTableNames(existingHabits);
             Console.WriteLine();
 
             Console.Write(promptMessage);
             string habitChoice = Console.ReadLine().Trim().ToLower();
             while (habitChoice != "n" && (!int.TryParse(habitChoice, out int habitNumber) && action.Equals("insert") || habitNumber < 1 || habitNumber > existingHabits.Length) || habitChoice.Equals("q"))
             {
-                Console.WriteLine("Invalid input. Please type a valid number of an existing habit or n to create a new habit:");
-                habitChoice = Console.ReadLine().Trim().ToLower();
-
-                if( habitChoice.Equals("q"))
+                if (habitChoice.Equals("q"))
                 {
                     return -1;
                 }
+
+                Console.Clear();
+                DisplayTableNames(existingHabits);
+
+                Console.WriteLine(promptMessage);
+                Console.WriteLine("Invalid input. Please type a valid number of an existing habit or n to create a new habit:");
+                habitChoice = Console.ReadLine().Trim().ToLower();                
             }
 
             if (habitChoice != "n")
@@ -478,7 +517,7 @@ Type q to return to main menu.");
         }
     }
 
-    public static (string date, int quantity, string quantityUnit) GetRecordDetailsInput()
+    public static (string date, double quantity, string quantityUnit) GetRecordDetailsInput()
     {
         Console.WriteLine("You will now be asked to enter Date, Quantity and Unit for your habit.\n");
 
@@ -488,7 +527,7 @@ Type q to return to main menu.");
             return (date, -1, "q");
         }
 
-        int quantity = GetNumberInput(getQuantityMessage);
+        double quantity = GetNumberInput(getQuantityMessage);
         if (quantity == -1)
         {
             return (date, quantity, "q");
@@ -519,19 +558,19 @@ Type q to return to main menu.");
         Console.Write("Select an option: ");
     }
 
-    public static void DisplayRecords(List<Habit> drinkingWaterRecords)
+    public static void DisplayRecords(List<Habit> givenRecords)
     {
         Console.WriteLine(lineSpacing);
-        foreach (var record in drinkingWaterRecords)
+        foreach (var record in givenRecords)
         {
-            Console.WriteLine($"ID: {record.Id} | Date: {record.Date.ToString("dd-MM-yyyy")} | Quantity: {record.Quantity} {record.QuantityUnit}");
+            Console.WriteLine($"ID: {record.Id} | Date: {record.Date:dd-MM-yyyy} | Quantity: {record.Quantity} {record.Unit}".TrimEnd());
         }
         Console.WriteLine(lineSpacing);
     }
 
-    public static bool GetAndDisplayTables()
-    {
-        tableNames = DatabaseHelper.GetTableNames();
+    public static bool DisplayAllTableRecords(string[] givenTableNames)
+    {        
+        tableNames = givenTableNames;
         if (tableNames.Length == 0 || tableNames[0].Contains("sqlite_sequence"))
         {
             return false;
@@ -545,7 +584,7 @@ Type q to return to main menu.");
             {
                 Console.WriteLine($"Habit {i + 1}: {tableNames[i]}");
 
-                habitRecords = DatabaseHelper.GetAllRecords(tableNames[i]);
+                habitRecords = DatabaseHelper.GetAllRecordsFromTable(tableNames[i]);
                 if (habitRecords.Count == 0)
                 {
                     Console.WriteLine(lineSpacing);
@@ -560,6 +599,26 @@ Type q to return to main menu.");
                 Console.WriteLine();
             }
             Console.WriteLine($"For a total of {totalRecords} records for {tableNames.Length} habits.\n");
+            return true;
+        }
+    }
+
+    public static bool DisplayTableNames(string[] givenTableNames)
+    { 
+        tableNames = givenTableNames;
+
+        if (tableNames.Length == 0 || tableNames[0].Contains("sqlite_sequence"))
+        {
+            return false;
+        }
+        else
+        {
+            Console.WriteLine("Existing habits in the database:\n");
+            for (int i = 0; i < tableNames.Length; i++)
+            {
+                Console.WriteLine($"Habit {i + 1}: {tableNames[i]}");
+            }
+            Console.WriteLine();
             return true;
         }
     }
