@@ -24,5 +24,18 @@ You can find the full assignment at [csharpacademy.com](https://www.thecsharpaca
     + [ ] What have you learned?
 
 ## How the app works
+In order to make it easier to develop, the Habit Tracker assumes the current culture is "en-GB", this means that the app is in English and dates, decimal notation etc. follow Great Britain standards.
+
+Upon starting the Habit Tracker application, it will create a database file "habittracker.db" if one doesn't already exist. This is where habit tables can be created, read, updated and deleted and habits belonging to those tables can likewise be created, read, updated and deleted.
+
+The person using the Habit Tracker is presented with a warning that "The responsibility for keeping the records correct lies on you." and prompted to press any key before being presented with the main menu.
+
+
 
 ## My thought process
+
+## What was hard?
+
+## What was easy?
+
+## What have I learned?
