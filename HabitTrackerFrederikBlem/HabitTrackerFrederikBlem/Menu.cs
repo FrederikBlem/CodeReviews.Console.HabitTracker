@@ -481,8 +481,6 @@ Type q to return to main menu.";
         }
         else
         {
-            Console.WriteLine("Existing habits in the database:\n");
-
             DisplayTableNames(existingHabits);
             Console.WriteLine();
 
