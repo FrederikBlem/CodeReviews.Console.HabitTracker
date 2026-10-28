@@ -358,7 +358,7 @@ Type q to return to main menu.";
     {
         string dateInstructions = "Enter the date for the habit record in the format dd-MM-yyyy. Type q to return to main menu.";
 
-        Console.Write(dateInstructions);
+        Console.WriteLine(dateInstructions);
 
         DateTime userDateTime;
         string dateInput = Console.ReadLine().Trim().ToLower();
