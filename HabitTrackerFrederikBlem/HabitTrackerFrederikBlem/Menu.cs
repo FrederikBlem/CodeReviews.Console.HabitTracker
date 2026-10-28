@@ -345,15 +345,13 @@ Type q to return to main menu.";
                 Console.WriteLine("Habit name cannot contain numbers or any of the following characters: / \\ : * ? \" < > |");
                 Console.WriteLine("Please enter a valid habit name or q to return to the main menu: ");
                 habitNameInput = Console.ReadLine().Trim().ToLower();
-                habitNameInput.Replace(" ", "_");
                 continue;
             }
 
             Console.WriteLine("Invalid input. Please enter a valid habit name or q to return to the main menu: ");
             habitNameInput = Console.ReadLine().Trim().ToLower();
-            habitNameInput.Replace(" ", "_");
         }
-        return habitNameInput;
+        return habitNameInput.Replace(" ", "_");
     }
 
     public static string GetDateInput()
