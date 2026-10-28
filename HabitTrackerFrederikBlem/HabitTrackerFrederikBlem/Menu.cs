@@ -355,30 +355,35 @@ Type q to return to main menu.";
     }
 
     public static string GetDateInput()
+{
+    string dateInstructions = "Enter the date for the habit record in the format dd-MM-yyyy or type t for today. Type q to return to main menu.";
+
+    Console.WriteLine(dateInstructions);
+
+    DateTime userDateTime;
+    string dateInput = Console.ReadLine().Trim().ToLower();
+    while (!DateTime.TryParse(dateInput, out userDateTime))
     {
-        string dateInstructions = "Enter the date for the habit record in the format dd-MM-yyyy. Type q to return to main menu.";
-
-        Console.WriteLine(dateInstructions);
-
-        DateTime userDateTime;
-        string dateInput = Console.ReadLine().Trim().ToLower();
-        while (!DateTime.TryParse(dateInput, out userDateTime))
+        if (dateInput == "t")
         {
-            if (dateInput == "q")
-            {
-                return dateInput;
-            }
-
-            Console.Clear();
-            Console.WriteLine(dateInstructions);
-            Console.Write("Invalid date format. Please enter the date in the format dd-MM-yyyy: ");
-            dateInput = Console.ReadLine().Trim().ToLower();
+            userDateTime = DateTime.Today;
+            break;
+        }
+        if (dateInput == "q")
+        {
+            return dateInput;
         }
 
-        string dateResult = userDateTime.ToString("dd-MM-yyyy");
-
-        return dateResult;
+        Console.Clear();
+        Console.WriteLine(dateInstructions);
+        Console.Write("Invalid date format. Please enter the date in the format dd-MM-yyyy: ");
+        dateInput = Console.ReadLine().Trim().ToLower();
     }
+
+    string dateResult = userDateTime.ToString("dd-MM-yyyy");
+
+    return dateResult;
+}
 
     public static double GetNumberInput(string message)
     {
